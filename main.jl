@@ -2,10 +2,10 @@ using ModelingToolkit
 
 @variables t x(t) y(t)
 @parameters m g k L d b
-D = Differential(t) # define an operator for the differentiation w.r.t. time
+D = Differential(t)
 
-gravity_force_x = -m * g * sqrt(1 - (x^2 + y^2) / L^2) / L
-gravity_force_y = -m * g * sqrt(1 - (x^2 + y^2) / L^2) / L
+gravity_force_x = x * -m * g * sqrt(1 - (x^2 + y^2) / L^2) / L
+gravity_force_y = y * -m * g * sqrt(1 - (x^2 + y^2) / L^2) / L
 drag_force_x = -b * D(x)
 drag_force_y = -b * D(y)
 
@@ -14,16 +14,19 @@ eqs = [
     D(D(y)) ~ (gravity_force_y + drag_force_y) / m
 ]
 
-@named pendulum_sys = ODESystem(eqs, t, [x, y], [m, g, b, k, L, d])
+@named pendulum_model = ODESystem(eqs, t, [x, y], [m, g, b, k, L, d])
+pendulum_sys = structural_simplify(pendulum_model)
+
+equations(pendulum_sys)
 
 using DifferentialEquations: solve
-using Plots: plot
+using Plots: plot, @animate, gif
 
 u0 = [
     x => 3,
-    y => 3,
-    D(x) => 0.0,
-    D(y) => 0.0
+    y => 7,
+    D(x) => 5.0,
+    D(y) => 0.5
 ]
 
 params = [
@@ -35,6 +38,17 @@ params = [
     k => 1.0 # magnetic force coefficient
 ]
 
-prob = ODEProblem(structural_simplify(pendulum_sys), u0, (0.0, 10.0), params)
+tspan = (0.0, 75.0)
+
+prob = ODEProblem(pendulum_sys, u0, tspan, params)
 sol = solve(prob)
-plot(sol, vars=(x, y), aspectratio=1, legend=false)
+plot(sol, vars=(x, y), aspectratio=1, size=(800, 800), xlims=(-10, 10), ylims=(-10, 10), legend=false)
+
+# sol(0)
+# sol(0)[2]
+
+plt = plot([], [], aspectratio=1, size=(800, 800), xlims=(-10, 10), ylims=(-10, 10), legend=false)
+anim = @animate for t = range(tspan[1], tspan[2], 300)
+    push!(plt, sol(t)[3], sol(t)[4])
+end
+gif(anim)
